@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"foodParser/models"
 	"io"
 	"log"
 	"net/http"
@@ -14,21 +15,11 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// Product структура для хранения информации о продукте
-type Product struct {
-	ImageUrl     string `json:"image_url"`
-	Name         string `json:"name"`
-	Protein      string `json:"protein"`
-	Fat          string `json:"fat"`
-	Carbohydrate string `json:"carbohydrate"`
-	Calories     string `json:"calories"`
-}
-
 func cleanString(s string) string {
-	return strings.TrimSpace(strings.ReplaceAll(s, "\n", ""))
+	return strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(s, "\n", ""), "'", ""))
 }
 
-var productsAll = make([][]Product, 84)
+var productsAll = make([][]models.Product, 84)
 
 func getFromPage(page int, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -53,7 +44,7 @@ func getFromPage(page int, wg *sync.WaitGroup) {
 		log.Fatal(err)
 	}
 
-	var products []Product
+	var products []models.Product
 	table := doc.Find("table")
 	tbody := table.Find("tbody")
 	rows := tbody.Find("tr")
@@ -62,7 +53,7 @@ func getFromPage(page int, wg *sync.WaitGroup) {
 	rows.Each(func(i int, s *goquery.Selection) {
 		cells := s.Find("td")
 		if cells.Length() == 6 {
-			product := Product{
+			product := models.Product{
 				ImageUrl:     cleanString(cells.Eq(0).Find("a").AttrOr("href", "")),
 				Name:         cleanString(cells.Eq(1).Text()),
 				Protein:      cleanString(cells.Eq(2).Text()),
@@ -78,26 +69,26 @@ func getFromPage(page int, wg *sync.WaitGroup) {
 	productsAll[page] = products
 }
 
-func main() {
+func main1() {
 	// URL страницы с продуктами
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 84; i++ {
 		if i%5 == 0 {
-			time.Sleep(time.Second * 2)
+			time.Sleep(time.Second * 1)
 		}
 		wg.Add(1)
 		go getFromPage(i, &wg)
 	}
 	wg.Wait()
 
-	productsAll_ := make([]Product, 0, 0)
+	productsAll_ := make([]models.Product, 0, 0)
 	for _, product := range productsAll {
 		productsAll_ = append(productsAll_, product...)
 	}
 
-	fmt.Printf("len %d", len(productsAll_))
+	fmt.Printf("len %d\n", len(productsAll_))
 	// Сохранение данных в JSON файл
 	file, err := os.Create("calorizator_products.json")
 	if err != nil {
